@@ -1,0 +1,95 @@
+version: '2'
+services:
+    gwiot:
+        build: gwiot/
+        privileged: true
+        hostname: gwiot
+        tty: true
+        stdin_open: true
+        depends_on:
+            - gwcloud
+        volumes:
+            - certs:/certs
+        networks:
+            iot_lan:
+                ipv4_address: 10.0.0.2
+            internet:
+                ipv4_address: 10.1.0.2
+    gwcloud:
+        build: gwcloud/
+        privileged: true
+        hostname: gwcloud
+        tty: true
+        stdin_open: true
+        volumes:
+            - certs:/certs
+        cap_add:
+            - NET_ADMIN
+        networks:
+            internet:
+                ipv4_address: 10.1.0.3
+            cloud:
+                ipv4_address: 10.2.0.2
+    iot:
+        build: iot/
+        hostname: iot
+        privileged: true
+        tty: true
+        stdin_open: true
+        volumes:
+            - ./iot:/app
+        depends_on:
+            - gwiot
+            - server
+        networks:
+            iot_lan:
+                ipv4_address: 10.0.0.3
+    rproxy:
+        build: rproxy/
+        hostname: rproxy
+        tty: true
+        privileged: true
+        stdin_open: true
+        depends_on:
+            - gwcloud
+            - server
+        volumes:
+            - ./rproxy:/app
+        networks:
+            cloud:
+                ipv4_address: 10.2.0.99
+    server:
+        build: server/
+        hostname: server
+        tty: true
+        privileged: true
+        stdin_open: true
+        depends_on:
+            - gwcloud
+        volumes:
+            - ./server:/app
+        networks:
+            cloud:
+                aliases:
+                    - srv
+networks:
+    iot_lan:
+        driver: bridge
+        ipam:
+            config:
+                - subnet: 10.0.0.0/16
+                  gateway: 10.0.0.1
+    internet:
+        driver: bridge
+        ipam:
+            config:
+                - subnet: 10.1.0.0/16
+                  gateway: 10.1.0.1
+    cloud:
+        driver: bridge
+        ipam:
+            config:
+                - subnet: 10.2.0.0/16
+                  gateway: 10.2.0.1
+volumes:
+    certs:
