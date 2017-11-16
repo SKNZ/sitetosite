@@ -17,5 +17,5 @@ ENV SELF_ID 1
 ENV IOT_SERVER "http://10.0.0.99:8080"
 
 # Run app.py when the container launches
-CMD route del default; route add default gw gwiot; ./wait-for-it.sh server:8080; bash
+CMD route del default; route add default gw gwiot; bash
 

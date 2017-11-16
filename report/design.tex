@@ -138,13 +138,14 @@ it should be a very long random string).
 \subsubsection{Communications security}
 
 Strongswan accepts 3 paramaters related to communications security.
-For encryption, we picked chacha20 combined with poly1305 for MAC\@.
-This is equivalent to AES but is apparently less prone to timing attacks.
+% For encryption, we picked chacha20 combined with poly1305 for MAC\@.
+For encryption, we picked AES256-CBC for its MAC properties\@.
+% This is equivalent to AES but is apparently less prone to timing attacks.
 
 For integrity, we picked prfsha512, which is sha512 combined with a pseudorandom
 function.
 
-Finally, we use elliptic curve based Diffie-Hellman with curve 25519.
+Finally, we use elliptic curve based Diffie-Hellman with curve ecp512bp.
 
 \section{Questions}
 
