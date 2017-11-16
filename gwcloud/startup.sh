@@ -1,7 +1,7 @@
 #!/bin/sh
 
-cp /etc/ipsec.d/certs/gwiot.pem /certs/
-cp /etc/ipsec.d/private/gwiot.der /certs/
+# cp /etc/ipsec.d/certs/gwiot.pem /certs/
+# cp /etc/ipsec.d/private/gwiot.der /certs/
 
 IP=$(ip route get 1 | awk '{print $NF;exit}')
 
@@ -29,10 +29,6 @@ done
 
 sysctl -p
 
+# ipsec start --nofork
 ipsec start
-
-echo "OK"
-
-ipsec listall
-
 bash

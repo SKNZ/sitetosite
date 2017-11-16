@@ -1,7 +1,7 @@
 #!/bin/sh
 
-cp /certs/gwiot.pem /etc/ipsec.d/certs/
-cp /certs/gwiot.der /etc/ipsec.d/private/
+# cp /certs/gwiot.pem /etc/ipsec.d/certs/
+# cp /certs/gwiot.der /etc/ipsec.d/private/
 
 IP=$(ip route get 1 | awk '{print $NF;exit}')
 
@@ -30,7 +30,7 @@ done
 
 sysctl -p
 
-ipsec start
+ipsec start --nofork &
 
 echo "OK"
 sleep 5
@@ -40,5 +40,5 @@ ipsec up net
 ip route add 10.2.0.2 dev eth0
 ip route add 10.2.0.0/16 via 10.2.0.2 dev eth0
 
+# fg
 bash
-
