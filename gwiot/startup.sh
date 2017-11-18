@@ -33,7 +33,7 @@ sysctl -p
 ipsec start --nofork &
 
 echo "OK"
-sleep 5
+sleep 2
 
 ipsec up net
 

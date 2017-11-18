@@ -51,8 +51,7 @@ assume in this case that neither LAN network is connected to the Internet.
 To enable safe communications, we will setup a site-to-site VPN over the
 Internet which will permit both sites to communicate with one another.
 
-For our scalability goal, we will set up a reverse proxy that will serve as an
-endpoint for our IOT connections and will balance them between various back-end
+For our scalability goal, we will use Docker containers to host our back-end
 servers.
 
 \section{Proof of Concept limitations}
@@ -91,11 +90,18 @@ We considered various options for the VPN software, but it finally boiled down
 to picking between OpenVPN and Strongswan.
 It seemed that both softwares could satisfy our usecases and seemed equally
 strong and safe.
-However, Strongswan implements IPSec, which seems to be the industry standard.
-Furthermore, we already had past experience setting up OpenVPN on our own
+
+First of all, we already had past experience setting up OpenVPN on our own
 dedicated servers.
-Thus, we elected to use Strongswan as we felt it was a good opportunity to try
-it out.
+Then, Strongswan implements IPSec, an industry standard that is quite widespread
+on common routing infrastructure.
+A client who would like to use its own router could readily configure
+it so that it connects to our VPN (such configuration however is outside the
+scope of this project), which is a good selling point for the customer and a
+decrease in cost for our company.
+
+Thus, we elected to use Strongswan as we felt it was both a sound choice and a
+good learning experience.
 
 \subsubsection{Authentication}
 
@@ -126,12 +132,18 @@ However, a PKI would still be best for multiple reasons.
 First of all, an existing organization is likely to have its own PKI already,
 and it would be best to leverage such an existing system instead of ``rolling
 one's own'' through a PSK\@.
+
 Then, while our current needs are quite simple and are easily satisfied by a
-PSK, our future might not be so: we might have more sites, more clients and
+PSK, our future needs might not be: we might have more sites, more clients and
 potentially a need for revocation.
 Such a change in need is clearly a usecase of the PKI\@: it provides a tremendous
 advantage in scalability and maintenance.
-Finally, a key provided through a PKI will hopefully always be fairly long,
+
+Additionally, in a configuration with multiple customers, a successful attack
+against of the cloud gateway compels a full replacement of all PSKs, whereas it
+would suffice to replace the certificate and key when using a PKI\@.
+
+Finally, a key provided through a PKI will always be fairly long,
 whereas a PSK chosen by sloppy students might only be 7 characters long (where
 it should be a very long random string).
 
@@ -147,18 +159,21 @@ function.
 
 Finally, we use elliptic curve based Diffie-Hellman with curve ecp512bp.
 
-\section{Questions}
+\subsection{Routing}
 
-Can we assume that the LAN network is safe? (e.g.\ do we need to add additional
-security to the requests travelling from the reverse proxy to the server)?\\
+For every customer network, we host a Docker container that runs the customer's
+back-end server.
+Such a setup allows us to efficiently use the resources of our cloud servers: a
+Docker container has a very small baseline resource cost and our application is
+not computationally heavy anyways.
 
-Is it fine if we have to update the IP\@?
-If we don't want to, what solution would be recommended? Can we have the
-gateway masquerade as the ``old'' server and have it route the actual requests to
-the reverse proxy (NAT?)?\\
+It also avoids using a reverse proxy: because each container has its own IP in
+the cloud LAN, the IOT devices can contact it's target directly.
 
-Do we need to give an actual purpose to our IOT client/server (i.e.\ such that
-it isn't a stateless everything)?
+Moreover, this is also an advantage from a security standpoint: for each VPN
+tunnel, we can ensure using the firewall on the cloud gateway that
+communications are only flowing between the devices belonging to the same
+customer.
 
 \end{document}
 

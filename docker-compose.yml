@@ -8,11 +8,9 @@ services:
         stdin_open: true
         depends_on:
             - gwcloud
-        volumes:
-            - certs:/certs
         networks:
             iot_lan:
-                ipv4_address: 10.0.0.2
+                ipv4_address: 10.0.0.254
             internet:
                 ipv4_address: 10.1.0.2
     gwcloud:
@@ -21,43 +19,27 @@ services:
         hostname: gwcloud
         tty: true
         stdin_open: true
-        volumes:
-            - certs:/certs
         cap_add:
             - NET_ADMIN
         networks:
             internet:
                 ipv4_address: 10.1.0.3
             cloud:
-                ipv4_address: 10.2.0.2
+                ipv4_address: 10.2.0.254
     iot:
         build: iot/
         hostname: iot
         privileged: true
         tty: true
         stdin_open: true
-        volumes:
-            - ./iot:/app
+        environment:
+            - IOT_SERVER="http://10.2.0.2:8080"
         depends_on:
             - gwiot
             - server
         networks:
             iot_lan:
                 ipv4_address: 10.0.0.3
-    rproxy:
-        build: rproxy/
-        hostname: rproxy
-        tty: true
-        privileged: true
-        stdin_open: true
-        depends_on:
-            - gwcloud
-            - server
-        volumes:
-            - ./rproxy:/app
-        networks:
-            cloud:
-                ipv4_address: 10.2.0.99
     server:
         build: server/
         hostname: server
@@ -70,8 +52,7 @@ services:
             - ./server:/app
         networks:
             cloud:
-                aliases:
-                    - srv
+                ipv4_address: 10.2.0.2
 networks:
     iot_lan:
         driver: bridge
@@ -91,5 +72,3 @@ networks:
             config:
                 - subnet: 10.2.0.0/16
                   gateway: 10.2.0.1
-volumes:
-    certs:
