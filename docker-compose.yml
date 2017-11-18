@@ -1,58 +1,46 @@
 version: '2'
 services:
-    gwiot:
-        build: gwiot/
+    cloudgw:
+        build: cloudgw/
         privileged: true
-        hostname: gwiot
         tty: true
         stdin_open: true
-        depends_on:
-            - gwcloud
-        networks:
-            iot_lan:
-                ipv4_address: 10.0.0.254
-            internet:
-                ipv4_address: 10.1.0.2
-    gwcloud:
-        build: gwcloud/
-        privileged: true
-        hostname: gwcloud
-        tty: true
-        stdin_open: true
-        cap_add:
-            - NET_ADMIN
         networks:
             internet:
-                ipv4_address: 10.1.0.3
+                ipv4_address: 10.1.0.254
             cloud:
                 ipv4_address: 10.2.0.254
-    iot:
-        build: iot/
-        hostname: iot
-        privileged: true
-        tty: true
-        stdin_open: true
-        environment:
-            - IOT_SERVER="http://10.2.0.2:8080"
-        depends_on:
-            - gwiot
-            - server
-        networks:
-            iot_lan:
-                ipv4_address: 10.0.0.3
-    server:
+    asrv:
         build: server/
-        hostname: server
         tty: true
         privileged: true
         stdin_open: true
-        depends_on:
-            - gwcloud
         volumes:
             - ./server:/app
         networks:
             cloud:
                 ipv4_address: 10.2.0.2
+    aiot:
+        build:
+            context: iot/
+        tty: true
+        stdin_open: true
+        privileged: true
+        environment:
+            - IOT_SERVER="http://10.2.0.2:8080"
+            - GWNAME=agw
+        networks:
+            iot_lan:
+    agw:
+        build: agw/
+        privileged: true
+        tty: true
+        stdin_open: true
+        depends_on:
+            - cloudgw
+        networks:
+            iot_lan:
+            internet:
 networks:
     iot_lan:
         driver: bridge

@@ -13,5 +13,5 @@ RUN apt-get update
 RUN apt-get install -y net-tools inetutils-ping nano
 
 # Run app.py when the container launches
-CMD route del default; route add default gw gwiot; bash
+CMD route del default; echo "GW IS $GWNAME"; route add default gw $GWNAME; bash
 

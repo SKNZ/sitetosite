@@ -1,7 +1,17 @@
 #!/bin/sh
 
-# cp /certs/gwiot.pem /etc/ipsec.d/certs/
-# cp /certs/gwiot.der /etc/ipsec.d/private/
+CERT="$(cd /app/pki/certs/ && ls *.der | grep -v cloud)"
+SUBNET=$(ip -o -f inet addr show | awk '/scope global/ {print $4}' | grep -v "10.1")
+
+echo "SUBNET IS $SUBNET"
+
+cat > /etc/ipsec.conf << EOC
+include ipsec.d/ipsec_client.conf
+
+conn net
+	leftsubnet=$SUBNET/16
+    leftcert=$CERT
+EOC
 
 IP=$(ip route get 1 | awk '{print $NF;exit}')
 
@@ -32,13 +42,14 @@ sysctl -p
 
 ipsec start --nofork &
 
+sleep 1
+
 echo "OK"
-sleep 2
 
 ipsec up net
 
-ip route add 10.2.0.2 dev eth0
-ip route add 10.2.0.0/16 via 10.2.0.2 dev eth0
+# ip route add 10.2.0.2 dev eth0
+# ip route add 10.2.0.0/16 via 10.2.0.2 dev eth0
 
 # fg
 bash
