@@ -13,14 +13,14 @@ echo "net.ipv4.icmp_ignore_bogus_error_responses = 1" |  tee -a /etc/sysctl.conf
 
 
 # for ISAKMP (handling of security associations)
-iptables -A INPUT -p udp --dport 500 --j ACCEPT
+# iptables -A INPUT -p udp --dport 500 --j ACCEPT
 # for NAT-T (handling of IPsec between natted devices)
-iptables -A INPUT -p udp --dport 4500 --j ACCEPT
+# iptables -A INPUT -p udp --dport 4500 --j ACCEPT
 # for ESP payload (the encrypted data packets)
-iptables -A INPUT -p esp -j ACCEPT
+# iptables -A INPUT -p esp -j ACCEPT
 
 # for the routing of packets on the server
-iptables -t nat -A POSTROUTING -j SNAT --to-source $IP -o eth+
+# iptables -t nat -A POSTROUTING -j SNAT --to-source $IP -o eth+
 
 for vpn in /proc/sys/net/ipv4/conf/*; do
     echo 0 > $vpn/accept_redirects
