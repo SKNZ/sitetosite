@@ -7,9 +7,9 @@ services:
         stdin_open: true
         networks:
             internet:
-                ipv4_address: 10.1.0.254
+                ipv4_address: 10.0.0.254
             cloud:
-                ipv4_address: 10.2.0.254
+                ipv4_address: 10.1.0.254
     asrv:
         build: server/
         tty: true
@@ -19,7 +19,7 @@ services:
             - ./server:/app
         networks:
             cloud:
-                ipv4_address: 10.2.0.2
+                ipv4_address: 10.1.0.2
     aiot:
         build:
             context: iot/
@@ -27,10 +27,12 @@ services:
         stdin_open: true
         privileged: true
         environment:
-            - IOT_SERVER="http://10.2.0.2:8080"
+            - IOT_SERVER=http://10.1.0.2:8080
             - GWNAME=agw
+        links:
+            - asrv
         networks:
-            iot_lan:
+            alan:
     agw:
         build: agw/
         privileged: true
@@ -39,22 +41,22 @@ services:
         depends_on:
             - cloudgw
         networks:
-            iot_lan:
+            alan:
             internet:
 networks:
-    iot_lan:
+    internet:
         driver: bridge
         ipam:
             config:
                 - subnet: 10.0.0.0/16
                   gateway: 10.0.0.1
-    internet:
+    cloud:
         driver: bridge
         ipam:
             config:
                 - subnet: 10.1.0.0/16
                   gateway: 10.1.0.1
-    cloud:
+    alan:
         driver: bridge
         ipam:
             config:

@@ -1,7 +1,9 @@
 #!/bin/sh
 
+set -o xtrace
+
 CERT="$(cd /app/pki/certs/ && ls *.der | grep -v cloud)"
-SUBNET=$(ip -o -f inet addr show | awk '/scope global/ {print $4}' | grep -v "10.1")
+SUBNET=$(ip -o -f inet addr show | awk '/scope global/ {print $4}' | grep -v "10.0")
 
 echo "SUBNET IS $SUBNET"
 
@@ -13,7 +15,10 @@ conn net
     leftcert=$CERT
 EOC
 
-IP=$(ip route get 1 | awk '{print $NF;exit}')
+INTERNET_IP=$(hostname -i | sed 's/ /\n/g' | grep 10.0)
+echo "MY INTERNET IP IS $INTERNET_IP (out of $(hostname -i))"
+LAN_IP=$(hostname -i | sed 's/ /\n/g' | grep -v 10.0)
+echo "MY LAN IP IS $LAN_IP"
 
 echo "net.ipv4.ip_forward = 1" |  tee -a /etc/sysctl.conf
 echo "net.ipv4.conf.all.accept_redirects = 0" |  tee -a /etc/sysctl.conf
@@ -30,8 +35,9 @@ iptables -A INPUT -p udp --dport 4500 --j ACCEPT
 # for ESP payload (the encrypted data packets)
 iptables -A INPUT -p esp -j ACCEPT
 # for the routing of packets on the server
-iptables -t nat -A POSTROUTING -j SNAT --to-source $IP -o eth+
-iptables -t nat -A POSTROUTING -s 10.0.0.0/24 -o eth0 -m policy --dir out --pol ipsec -j ACCEPT
+iptables -t nat -A POSTROUTING -j SNAT --to-source $INTERNET_IP -o eth+
+iptables -t nat -A POSTROUTING -s $LAN_IP/24 -o eth0 -m policy \
+    --dir out --pol ipsec -j ACCEPT
 
 for vpn in /proc/sys/net/ipv4/conf/*; do
     echo 0 > $vpn/accept_redirects
@@ -40,7 +46,7 @@ done
 
 sysctl -p
 
-ipsec start --nofork &
+ipsec start #--nofork &
 
 sleep 1
 
@@ -51,5 +57,4 @@ ipsec up net
 # ip route add 10.2.0.2 dev eth0
 # ip route add 10.2.0.0/16 via 10.2.0.2 dev eth0
 
-# fg
-bash
+sh

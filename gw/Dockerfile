@@ -1,7 +1,7 @@
-FROM ubuntu:16.04
+FROM alpine:latest
 
-RUN apt-get update
-RUN apt-get install -y strongswan openssl inetutils-ping net-tools vim
+RUN apk add --update strongswan vim
+# RUN apk add --update iputils net-tools
 
 ADD . /app
 WORKDIR /app

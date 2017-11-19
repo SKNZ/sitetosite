@@ -1,9 +1,7 @@
 #!/bin/sh
 
-# cp /etc/ipsec.d/certs/gwiot.pem /certs/
-# cp /etc/ipsec.d/private/gwiot.der /certs/
-
-IP=$(ip route get 1 | awk '{print $NF;exit}')
+IP=$(hostname -i | sed 's/ /\n/g' | grep -v 10.0)
+echo "MY INTERNET IP IS $IP"
 
 echo "net.ipv4.ip_forward = 1" |  tee -a /etc/sysctl.conf
 echo "net.ipv4.conf.all.accept_redirects = 0" |  tee -a /etc/sysctl.conf
@@ -13,12 +11,14 @@ echo "net.ipv4.conf.default.accept_source_route = 0" |  tee -a /etc/sysctl.conf
 echo "net.ipv4.conf.default.send_redirects = 0" |  tee -a /etc/sysctl.conf
 echo "net.ipv4.icmp_ignore_bogus_error_responses = 1" |  tee -a /etc/sysctl.conf
 
+
 # for ISAKMP (handling of security associations)
 iptables -A INPUT -p udp --dport 500 --j ACCEPT
 # for NAT-T (handling of IPsec between natted devices)
 iptables -A INPUT -p udp --dport 4500 --j ACCEPT
 # for ESP payload (the encrypted data packets)
 iptables -A INPUT -p esp -j ACCEPT
+
 # for the routing of packets on the server
 iptables -t nat -A POSTROUTING -j SNAT --to-source $IP -o eth+
 
@@ -31,4 +31,4 @@ sysctl -p
 
 # ipsec start --nofork
 ipsec start
-bash
+sh
