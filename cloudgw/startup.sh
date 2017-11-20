@@ -31,4 +31,7 @@ sysctl -p
 
 # ipsec start --nofork
 ipsec start
+
+./ipt.sh
+
 sh

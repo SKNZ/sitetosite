@@ -56,5 +56,6 @@ ipsec up net
 
 # ip route add 10.2.0.2 dev eth0
 # ip route add 10.2.0.0/16 via 10.2.0.2 dev eth0
+./ipt.sh
 
 sh

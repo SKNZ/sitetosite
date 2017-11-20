@@ -40,9 +40,13 @@ services:
         stdin_open: true
         depends_on:
             - cloudgw
+        volumes:
+            - ./gw:/app
+            - ./agw/pki:/app/pki
         networks:
             alan:
             internet:
+                ipv4_address: 10.0.0.2
     bsrv:
         build: server/
         tty: true
