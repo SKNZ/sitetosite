@@ -5,6 +5,8 @@ services:
         privileged: true
         tty: true
         stdin_open: true
+        volumes:
+            - ./cloudgw:/app
         networks:
             internet:
                 ipv4_address: 10.0.0.254
@@ -15,8 +17,6 @@ services:
         tty: true
         privileged: true
         stdin_open: true
-        volumes:
-            - ./server:/app
         networks:
             cloud:
                 ipv4_address: 10.1.0.2
@@ -43,6 +43,27 @@ services:
         networks:
             alan:
             internet:
+    bsrv:
+        build: server/
+        tty: true
+        privileged: true
+        stdin_open: true
+        networks:
+            cloud:
+                ipv4_address: 10.1.0.3
+    biot:
+        build:
+            context: iot/
+        tty: true
+        stdin_open: true
+        privileged: true
+        environment:
+            - IOT_SERVER=http://10.1.0.3:8080
+            - GWNAME=agw
+        links:
+            - asrv
+        networks:
+            alan:
 networks:
     internet:
         driver: bridge
