@@ -54,64 +54,67 @@ network (called cloud LAN further on) that is not connected to the internet.
 \subsection{Docker}
 
 While the scenario intends for this setup to be used in a corporate environment,
-we have for obvious reasons to simulate such an environment.
-For that purpose, we chose to use Docker containers, which allow us a quick and
-easy way to setup multiple simulated machines and to script them to our needs.
+the environment has for obvious reasons to be simulated.
+For that purpose, Docker is used. Docker offers a quick and easy way to setup
+and script multiple simulated machines.
 The main advantage of Docker over traditional virtual machines is ease of
-reproducibility.
-Moreover, Docker is commonly used for cloud-based setups, meaning that, for the
-cloud part, our simulation is somewhat similar to what it would be in a
-real-world application.
+reproducibility on different setups, which is key when doing groupwork.
+Moreover, Docker is commonly used for cloud-based setups meaning that, for the
+cloud part, our simulation is somewhat similar to a real-world application.
+\\
+
+Docker Compose is used on top of Docker. Docker Compose is a tool for managing
+container instances: containers and networks are programmatically declared and
+the infrastructure as a whole can then be launched using simple commands.
 
 \subsection{IOT device \& server}
 
 The specifications state the limitations of the IOT device but nothing about
 it's actual functions.
-Therefore, believing this to be of no interest, we have created a simple bash
-script that is running inside its own Docker container as a way to simulate the
-IOT client.
-This script uses curl to send a plain-text HTTP GET request to a specified IP
-address/port containing the current date.
+Therefore, the simplest solution was chosen: a simple bash script runs inside
+its own Docker container and simulates the IOT client.
+This script uses curl to send a plain-text HTTP GET request containing the
+current timestamp to a specified IP address/port.
 
 The server is a simple stateless python script running inside its
 own container.
-The server receives the data from the client over HTTP, prints it out and does
-nothing more with it.
+The server receives the data from the client over HTTP, prints it out and
+discards it.
 
 Note that, due to a Docker technical limitation (host machine is seen as the
-default gateway), we manually overwrite the default route of both device and
-server to set it to the correct gateway (the local VPN server).
+default gateway), the default route of both client and server is manually
+overwritten to the correct gateway (the local VPN server).
 
 \subsection{Gateways}
 
 The IOT gateways (one per customer network) each have their own tunnel to the
-cloud gateway, which is shared between all customers.
-The gateways serve as the main routing point of all the LAN networks, and all
+cloud gateway, which is common to all customers.
+The gateways serve as the main routing node of all the LAN networks, and all
 traffic goes through them.
 
-The gateways are set up to only let through traffic that is relevant for each
+They are also set up to only let through traffic that is relevant for each
 network (see Section~\ref{firewall} for the firewall rules).
 
 \section{Technical choices}
 
 \subsection{VPN}
 
-We considered various options for the VPN software, but it finally boiled down
+Various options were considered for the VPN software, but it finally boiled down
 to picking between OpenVPN and Strongswan.
-It seemed that both softwares could satisfy our usecases and seemed equally
-strong and safe.
+Both softwares were well-suited to the usecases and seemed equally strong and
+safe.
 
-First of all, we already had past experience setting up OpenVPN on our own
+First of all, we already had past experience in setting up OpenVPN on our own
 dedicated servers.
 Then, Strongswan implements IPSec, an industry standard that is quite widespread
 on common routing infrastructure.
 A client who would like to use its own router could readily configure
 it so that it connects to our VPN (such configuration is outside the
 scope of this project but is quite standard), which is a good selling point for
-the customer and a decrease in cost for our company.
+the customer and a decrease in cost for the company.
 
-Thus, we elected to use Strongswan as we felt it was both a sound choice and a
-good learning experience.
+Thus, Strongswan was chosen as it was both a sound choice and a good learning
+experience.
 
 \subsubsection{Authentication (initial design)}
 
@@ -120,108 +123,116 @@ This part talks only about our initial design from the first design document.
 The actual design is detailed in the next part.
 \\
 
-For authentication, we initially wanted to set up our own public key
-infrastructure such that we would have a root certificate and one certificate
-for each of our gateways.
-Unfortunately, as of now, we have not yet managed to get it working and
-authentication systematically fails, even though we believe all the certificates
-are signed adequately.
+For authentication, a public key infrastructure with a root certificate and one
+certificate for each of our gateways was the initial choice
+Unfortunately, we had not yet managed to get it working by the initial design
+deadline and authentication systematically failed, even though we believe all the
+certificates were signed adequately.
 
-Consequently, we've fallen back onto onto Pre-Shared Key (PSK) authentication,
-where the password is stored in clear-text in the Strongswan's configuration
+Consequently, Pre-Shared Key (PSK) authentication was used,
+in which the password is stored in clear-text in the Strongswan's configuration
 file.
-Because our VPN usage scenario is so simple (there will be at most two
-participants in the VPN), we believe this to be as easily maintained as a
-PKI-based authentication solution.\\
+At the time, because of the scenario's simplicity (only two gateways were
+simulated), we believed this to be as easily maintained as a
+PKI-based authentication solution (more on that later).\\
 
 In terms of security, we believe both solutions to be equivalent in most
 regards: if the machine is compromised, then a PSK or a private key can be
 extracted in the same manner, and both can then be replaced easily by an admin. 
 If the private key is password protected, Strongswan will ask for it on startup,
-but the same can also be applied to PSK\@.
+but the same can also be applied to a PSK\@.
 For an ongoing connection, having access to the original mean of authentication
 is useless as it is only used for initial authentication and not as a session
-key.\\
+key (the configuration used here provides perfect forward secrecy).\\
 
 However, a PKI would still be best for multiple reasons.
 First of all, an existing organization is likely to have its own PKI already,
 and it would be best to leverage such an existing system instead of ``rolling
 one's own'' through a PSK\@.
 
-Then, while our current needs are quite simple and are easily satisfied by a
-PSK, our future needs might not be: we might have more sites, more clients and
+Then, while the current needs are quite simple and are easily satisfied by a
+PSK, future needs might not be: there might be more sites, more clients and
 potentially a need for revocation.
-Such a change in need is clearly a usecase of the PKI\@: it provides a tremendous
-advantage in scalability and maintenance.
+Such an evolution in requirements is clearly a usecase in favor the PKI\@: it
+provides a tremendous advantage in scalability, maintenance and security.
 
 Additionally, in a configuration with multiple customers, a successful attack
 against of the cloud gateway compels a full replacement of all PSKs, whereas it
-would suffice to replace the certificate and key when using a PKI\@.
+would suffice to replace a single certificate and key pair when using a PKI\@.
+Even safer, a smartcard can be used to hold the private key, in which case it
+should be safe against both physical and remote attacks.
 
 Finally, a key provided through a PKI will always be fairly long,
 whereas a PSK chosen by sloppy students might only be 7 characters long (where
-it should be a very long random string).
+it should have been a very long random string).
 
 \subsubsection{Authentication (final)}
 
-For our final design, we have a set up a public-key infrastructure.
-The keys are generated outside of any Docker container (e.g.\ this is our
-equivalent of having an offline machine where the private key for the root
-certificate is stored).
+For the final design, the public-key infrastructure is up and running.
+The keys are generated outside of any Docker container (e.g.\ this is the
+simulated equivalent of having an offline machine where the private key for the
+root certificate is stored).
 The Docker containers are preloaded with their key: there's no runtime
-mechanism for obtaining the key dynamically through an API or some such.
-Indeed, we feel that having such an API is a safety risk (bigger attack surface)
-and that it doesn't bring actual value to the application.
+mechanism for obtaining the key dynamically through an API or similar.
+Indeed, having such an API is a safety risk (bigger attack surface) and lays
+mainly outside of our domain of competency (we believe such difficult systems to
+be best left to more qualified people, such as VeriSign or Let's encrypt).
 
-Currently, each gateway stores it's own private key on its drive, which feel is
+Currently, each gateway stores its private key on the local drive, which is
 a potential danger in case of a breach.
-However, Strongswan supports smartcards and for a real application, we believe
-that distributing smartcards is one of the safest ways to get a private key to
-the customer's site: the smartcards are believed to be physically tamperproof
-(we could even consider posting them to the client and doing the whole setup
-remotely) and would not fall victim to a remote attack.
+However, Strongswan supports smartcards which should be used for a real
+application.
+A smartcard is probably one of the safest ways to get a private key
+to the customer's physical site: the smartcards are believed to be physically
+tamperproof and would not fall victim to a remote attack.
+One could even consider having a smartcard delivered to the client and
+configuring the gateway remotely, implying much less time spent and therefore
+reduced cost per client.
 
 \subsubsection{Encryption algorithms}
 
 Strongswan accepts 3 paramaters related to communications security.
-% For encryption, we picked chacha20 combined with poly1305 for MAC\@.
-For encryption, we picked AES256-CBC for its MAC properties\@.
-% This is equivalent to AES but is apparently less prone to timing attacks.
 
-For integrity, we picked prfsha512, which is sha512 combined with a pseudorandom
-function.
+For encryption, AES256-CBC is used, as it is a well-known standard and provides
+included MAC\@.
 
-Finally, we use elliptic curve based Diffie-Hellman with curve25515 for perfect
-forward secrecy.
+For integrity, prfsha512, a sha512 hash combined with a pseudorandom
+function, is used.
+
+Finally, an elliptic curve Diffie-Hellman with curve25515 is used to
+construct a session key.
+This provides perfect forward secrecy.
 
 \subsection{Routing}
 
-For every customer network, we host a Docker container that runs the customer's
-back-end server.
-Such a setup allows us to efficiently use the resources of our cloud servers: a
-Docker container has a very small baseline resource cost and our application is
-not computationally heavy anyways.
+For each customer network, a separate Docker container runs the back-end server.
+Such a setup allows efficient use the resources of the cloud servers: a Docker
+container has a very resource footprint and the application is presumed not to
+be computationally heavy.
 
-It also avoids using a reverse proxy: because each container has its own IP in
-the cloud LAN, the IOT devices can contact it's target directly.
+It also avoids systematic use of a reverse proxy: because each container has its
+own IP in the cloud LAN, the IOT devices can contact it's target directly.
 
-Moreover, this is also an advantage from a security standpoint: for each VPN
-tunnel, we can ensure using the firewall on the cloud gateway that
-communications are only flowing between the devices belonging to the same
-customer.
+From a security standpoint, we can ensure using the firewall on the cloud
+gateway that communications are only flowing between devices belonging to
+the same customer (cf Section~\ref{firewall}).
 \\
 
 Note that, should the load become too important for a single server, there are
 multiple options (ignoring software optimizations, sorted by order of
-preference): the container could be moved to its own cloud server (instead of
-sharing with over containers), it could be moved to a more powerful cloud server
-or a load-balancer could be added in front of it in order to scale it out.
+preference):
+\begin{itemize}
+    \item the container could be moved to its own cloud server (instead of
+    sharing with other containers)
+    \item it could be moved to a more powerful cloud server
+    \item a load-balancer could be added in front of a swarm of containers
+\end{itemize}
 
 \subsection{Firewall}\label{firewall}
 
-On the cloud gateway, the default action is drop all packets
-Packets flowing on ports used by IPSec on the internet-facing interface are
-allowed.
+On the cloud gateway, the default policy is to forbid all traffic.
+Packets used by the IPSec protocol itself are then allowed on the
+internet-facing interface only.
 
 The key rules are the following (there is one for each IOT network):
 \\
@@ -248,15 +259,19 @@ through the correct IPSEC VPN tunnel (reqid parameter).
 The second rule is the same but in the other direction.
 
 Furthermore, both rules have statefulness constraints: traffic can only be
-initiated by the IOT LAN to the cloud LAN and traffic can only leave the cloud
+initiated from the IOT LAN to the cloud LAN and traffic can only leave the cloud
 LAN through an already established connection.
 \\
 
 On the LAN gateway, the rules simply check that traffic has proper origin and
-destination network and that it is correct IPSEC traffic.
-The rules are much simpler because they are enforced already on the cloud
-gateway, for ease of maintenance and finally because the LAN gateway is in the
-hands of client, which means it cannot be trusted.
+destination network and that it is indeed IPSEC traffic.
+As safety-related rules are already enforced on the cloud gateway, those rules
+are much more lax.
+Generally, as the IOT gateways are in the client's hand, they should not be
+trusted which explains why the cloud gateway has bigger responsibilities.
+
+Firewall rules in full can be found in \texttt{gw/fw} for the IOT gateways and
+\texttt{cloudgw/fw} for the cloud gateway.
 
 \end{document}
 
