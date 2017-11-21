@@ -40,21 +40,16 @@ Authors: Floran NARENJI-SHESHKALANI (643166) \& Jean-Marcellin TRUONG (643357)
 
 The original design is composed of several IOT clients exchanging with a single
 server on the same local area network (called IOT LAN further on).
-The stated objective is to move that server to the cloud, and make it so that
-this server can be scaled up while keeping the communications secure without
-usage of HTTPS\@.
-The servers in the cloud will have their own local area network (called cloud
-LAN further on).
-While cloud servers would normally be accessible over the internet, we will
-assume in this case that neither LAN network is connected to the Internet.
+The stated objective is to move that server to the cloud while keeping the
+communications secure using a site-to-site VPN\@.
+Beyond safety, one of the mail design goals is to make this architecture
+scalable in the sense that it would be easy to support other customers (e.g.\
+other networks of IOT devices who want to securely contact a cloud server).
 
-To enable safe communications, we will setup a site-to-site VPN over the
-Internet which will permit both sites to communicate with one another.
+From a technical standpoint, the servers in the cloud have their own local area
+network (called cloud LAN further on) that is not connected to the internet.
 
-For our scalability goal, we will use Docker containers to host our back-end
-servers.
-
-\section{Proof of Concept limitations}
+\section{Proof of Concept}
 
 \subsection{Docker}
 
@@ -62,25 +57,40 @@ While the scenario intends for this setup to be used in a corporate environment,
 we have for obvious reasons to simulate such an environment.
 For that purpose, we chose to use Docker containers, which allow us a quick and
 easy way to setup multiple simulated machines and to script them to our needs.
-The main advantage of Docker over traditional virtual machines is of course
+The main advantage of Docker over traditional virtual machines is ease of
 reproducibility.
+Moreover, Docker is commonly used for cloud-based setups, meaning that, for the
+cloud part, our simulation is somewhat similar to what it would be in a
+real-world application.
 
 \subsection{IOT device \& server}
 
 The specifications state the limitations of the IOT device but nothing about
 it's actual functions.
-Therefore, believing this to be of no interest, we have created a simple python
+Therefore, believing this to be of no interest, we have created a simple bash
 script that is running inside its own Docker container as a way to simulate the
 IOT client.
-This script simply sends a plain-text HTTP GET request to a specified IP
+This script uses curl to send a plain-text HTTP GET request to a specified IP
 address/port containing the current date.
 
-Just the same, the server is a simple stateless python script running inside its
+The server is a simple stateless python script running inside its
 own container.
 The server receives the data from the client over HTTP, prints it out and does
 nothing more with it.
-This makes the server very easy to scale, but it also serves no obvious
-purpose.
+
+Note that, due to a Docker technical limitation (host machine is seen as the
+default gateway), we manually overwrite the default route of both device and
+server to set it to the correct gateway (the local VPN server).
+
+\subsection{Gateways}
+
+The IOT gateways (one per customer network) each have their own tunnel to the
+cloud gateway, which is shared between all customers.
+The gateways serve as the main routing point of all the LAN networks, and all
+traffic goes through them.
+
+The gateways are set up to only let through traffic that is relevant for each
+network (see Section~\ref{firewall} for the firewall rules).
 
 \section{Technical choices}
 
@@ -96,14 +106,19 @@ dedicated servers.
 Then, Strongswan implements IPSec, an industry standard that is quite widespread
 on common routing infrastructure.
 A client who would like to use its own router could readily configure
-it so that it connects to our VPN (such configuration however is outside the
-scope of this project), which is a good selling point for the customer and a
-decrease in cost for our company.
+it so that it connects to our VPN (such configuration is outside the
+scope of this project but is quite standard), which is a good selling point for
+the customer and a decrease in cost for our company.
 
 Thus, we elected to use Strongswan as we felt it was both a sound choice and a
 good learning experience.
 
-\subsubsection{Authentication}
+\subsubsection{Authentication (initial design)}
+
+\huge \danger{} \normalsize
+This part talks only about our initial design from the first design document.
+The actual design is detailed in the next part.
+\\
 
 For authentication, we initially wanted to set up our own public key
 infrastructure such that we would have a root certificate and one certificate
@@ -147,7 +162,26 @@ Finally, a key provided through a PKI will always be fairly long,
 whereas a PSK chosen by sloppy students might only be 7 characters long (where
 it should be a very long random string).
 
-\subsubsection{Communications security}
+\subsubsection{Authentication (final)}
+
+For our final design, we have a set up a public-key infrastructure.
+The keys are generated outside of any Docker container (e.g.\ this is our
+equivalent of having an offline machine where the private key for the root
+certificate is stored).
+The Docker containers are preloaded with their key: there's no runtime
+mechanism for obtaining the key dynamically through an API or some such.
+Indeed, we feel that having such an API is a safety risk (bigger attack surface)
+and that it doesn't bring actual value to the application.
+
+Currently, each gateway stores it's own private key on its drive, which feel is
+a potential danger in case of a breach.
+However, Strongswan supports smartcards and for a real application, we believe
+that distributing smartcards is one of the safest ways to get a private key to
+the customer's site: the smartcards are believed to be physically tamperproof
+(we could even consider posting them to the client and doing the whole setup
+remotely) and would not fall victim to a remote attack.
+
+\subsubsection{Encryption algorithms}
 
 Strongswan accepts 3 paramaters related to communications security.
 % For encryption, we picked chacha20 combined with poly1305 for MAC\@.
@@ -157,7 +191,8 @@ For encryption, we picked AES256-CBC for its MAC properties\@.
 For integrity, we picked prfsha512, which is sha512 combined with a pseudorandom
 function.
 
-Finally, we use elliptic curve based Diffie-Hellman with curve ecp512bp.
+Finally, we use elliptic curve based Diffie-Hellman with curve25515 for perfect
+forward secrecy.
 
 \subsection{Routing}
 
@@ -174,6 +209,54 @@ Moreover, this is also an advantage from a security standpoint: for each VPN
 tunnel, we can ensure using the firewall on the cloud gateway that
 communications are only flowing between the devices belonging to the same
 customer.
+\\
+
+Note that, should the load become too important for a single server, there are
+multiple options (ignoring software optimizations, sorted by order of
+preference): the container could be moved to its own cloud server (instead of
+sharing with over containers), it could be moved to a more powerful cloud server
+or a load-balancer could be added in front of it in order to scale it out.
+
+\subsection{Firewall}\label{firewall}
+
+On the cloud gateway, the default action is drop all packets
+Packets flowing on ports used by IPSec on the internet-facing interface are
+allowed.
+
+The key rules are the following (there is one for each IOT network):
+\\
+
+\texttt{%
+    -A FORWARD -p tcp -s \$LAN\_SOURCE/16 -d \$DEST\_SERVER/32 --dport 80 -i
+    eth\_internet -o eth\_lan -m conntrack --ctstate NEW,ESTABLISHED -m policy
+    --dir in --pol ipsec --reqid tunnel\_id --proto esp -j ACCEPT
+}
+\\
+
+\texttt{%
+    -A FORWARD -p tcp -s \$DEST\_SERVER/32 -d \$LAN\_SOURCE/16 --sport 80 -m
+    conntrack --ctstate \\ESTABLISHED -i eth\_lan -o eth\_internet -m policy --dir
+    out --pol ipsec --reqid tunnel\_id --proto esp -j ACCEPT
+}
+\\
+
+The first rule will allow incoming traffic from the IOT LAN and to the
+destination server (and only that one server) on the TCP port 80 (HTTP) coming
+in from the internet and going towards the cloud LAN if it has travelled
+through the correct IPSEC VPN tunnel (reqid parameter).
+
+The second rule is the same but in the other direction.
+
+Furthermore, both rules have statefulness constraints: traffic can only be
+initiated by the IOT LAN to the cloud LAN and traffic can only leave the cloud
+LAN through an already established connection.
+\\
+
+On the LAN gateway, the rules simply check that traffic has proper origin and
+destination network and that it is correct IPSEC traffic.
+The rules are much simpler because they are enforced already on the cloud
+gateway, for ease of maintenance and finally because the LAN gateway is in the
+hands of client, which means it cannot be trusted.
 
 \end{document}
 
