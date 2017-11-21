@@ -8,4 +8,8 @@ if [[ "$IOT_SERVER" ]]; then
 fi
 
 curl -Gvs -m 1 "$D" --data-urlencode "time='$(date)'"
+if [[ "$IOT_SERVER2" ]]; then
+    curl -Gvs -m 1 "$IOT_SERVER2" --data-urlencode "time='$(date)'"
+fi
+
 # sh

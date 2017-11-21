@@ -1,18 +1,20 @@
 version: '2'
 services:
     cloudgw:
+        hostname: cloudgw
         build: cloudgw/
         privileged: true
         tty: true
         stdin_open: true
-        volumes:
-            - ./cloudgw:/app
+        # volumes:
+        #     - ./cloudgw:/app
         networks:
             internet:
                 ipv4_address: 10.0.0.254
             cloud:
                 ipv4_address: 10.1.0.254
     asrv:
+        hostname: asrv
         build: server/
         tty: true
         privileged: true
@@ -21,30 +23,34 @@ services:
             cloud:
                 ipv4_address: 10.1.0.2
     aiot:
+        hostname: aiot
         build:
             context: iot/
         tty: true
         stdin_open: true
         privileged: true
         environment:
+            - IOT_SERVER2=http://10.1.0.3
             - GWNAME=agw
         networks:
             alan:
     agw:
+        hostname: agw
         build: agw/
         privileged: true
         tty: true
         stdin_open: true
         depends_on:
             - cloudgw
-        volumes:
-            - ./gw:/app
-            - ./agw/pki:/app/pki
+        # volumes:
+        #     - ./gw:/app
+            # - ./agw/pki:/app/pki
         networks:
             alan:
             internet:
                 ipv4_address: 10.0.0.2
     bsrv:
+        hostname: bsrv
         build: server/
         tty: true
         privileged: true
@@ -53,18 +59,32 @@ services:
             cloud:
                 ipv4_address: 10.1.0.3
     biot:
+        hostname: biot
         build:
             context: iot/
         tty: true
         stdin_open: true
         privileged: true
         environment:
-            - IOT_SERVER=http://10.1.0.3:8080
-            - GWNAME=agw
-        links:
-            - asrv
+            - IOT_SERVER2=http://10.1.0.2
+            - GWNAME=bgw
         networks:
-            alan:
+            blan:
+    bgw:
+        hostname: bgw
+        build: bgw/
+        privileged: true
+        tty: true
+        stdin_open: true
+        depends_on:
+            - cloudgw
+        # volumes:
+        #     - ./gw:/app
+        #     - ./bgw/pki:/app/pki
+        networks:
+            blan:
+            internet:
+                ipv4_address: 10.0.0.3
 networks:
     internet:
         driver: bridge
@@ -84,3 +104,9 @@ networks:
             config:
                 - subnet: 10.2.0.0/16
                   gateway: 10.2.0.1
+    blan:
+        driver: bridge
+        ipam:
+            config:
+                - subnet: 10.3.0.0/16
+                  gateway: 10.3.0.1

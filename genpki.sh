@@ -19,6 +19,7 @@ function mkgw {
         --cakey caKey.der \
         --dn "C=FI, O=netsecvpn, CN=$gw" --san $gw > "${gw}Cert.der"
 
+    rm -r "../$gw/pki/"
     mkdir -p "../$gw/pki/"{private,certs,cacerts}
     cp "${gw}Key.der" "../${gw}/pki/private"
     cp "${gw}Cert.der" "../${gw}/pki/certs"
@@ -28,5 +29,5 @@ function mkgw {
 
 mkgw "cloud"
 mkgw "a"
-
+mkgw "b"
 
