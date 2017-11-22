@@ -142,9 +142,9 @@ Inside the folder, the following commands can then be used:\\
     \# The one to the other server should fail.
     \\ \\
     %
-    \# To attach into the gateways, e.g.\ the cloud one \\
-    \# Note that `sitetosite' is the name of folder in which the project is \\
-    \$ docker attach sitetosite\_cloudgw\_1
+    \# To shell into a gateway, e.g.\ the cloud one \\
+    \# Note that exiting the shell will not stop the container \\
+    \$ docker-compose exec cloudgw zsh
     \\ \\
     %
     \# Inside the container, you can use the following commands to observe the \\
@@ -279,7 +279,7 @@ included MAC\@.
 For integrity, prfsha512, a sha512 hash combined with a pseudorandom
 function, is used.
 
-Finally, an elliptic curve Diffie-Hellman with curve25515 is used to
+Finally, an elliptic curve Diffie-Hellman with curve25519 is used to
 construct a session key.
 This provides perfect forward secrecy.
 
