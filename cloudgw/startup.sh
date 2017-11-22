@@ -34,4 +34,5 @@ ipsec start
 
 ./ipt.sh
 
+watch -n 1 ipsec statusall
 sh

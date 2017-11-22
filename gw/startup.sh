@@ -2,6 +2,21 @@
 
 set -o xtrace
 
+if ! [[ -d /app/pki/ ]]; then
+    echo "Missing PKI folder."
+    exit 1
+fi
+
+PK="$(ls /app/pki/private/*.der)"
+cp $PK /etc/ipsec.d/private/
+cp -Rv /app/pki/certs/* /etc/ipsec.d/certs/
+cp -Rv /app/pki/cacerts/* /etc/ipsec.d/cacerts/
+echo ": RSA $(basename $PK)" > /etc/ipsec.secrets
+
+cp -v /app/ipsec_client.conf /etc/ipsec.d/
+cp -v /app/ipsec_cipher.conf /etc/ipsec.d/
+cp -v /app/charon-logging.conf /etc/strongswan.d/charon-logging.conf
+
 CERT="$(cd /app/pki/certs/ && ls *.der | grep -v cloud)"
 SUBNET=$(ip -o -f inet addr show | awk '/scope global/ {print $4}' | grep -v "10.0")
 
@@ -58,4 +73,5 @@ ipsec up net
 # ip route add 10.2.0.0/16 via 10.2.0.2 dev eth0
 ./ipt.sh
 
+watch -n 1 ipsec statusall
 sh
