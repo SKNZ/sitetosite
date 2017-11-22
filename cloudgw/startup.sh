@@ -29,10 +29,11 @@ done
 
 sysctl -p
 
-# ipsec start --nofork
-ipsec start
-
 ./ipt.sh
+rm /var/run/starter.charon.pid
+rm /var/run/charon.pid
+rm l.log
+ipsec start --nofork
 
-watch -n 1 ipsec statusall
-sh
+# ipsec start
+# ./ipt.sh

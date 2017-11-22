@@ -1,6 +1,6 @@
 FROM alpine:latest
 
-RUN apk add --update curl 
+RUN apk add --update curl zsh
 ADD . /app
 WORKDIR /app
 

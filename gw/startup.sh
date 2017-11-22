@@ -61,17 +61,16 @@ done
 
 sysctl -p
 
-ipsec start #--nofork &
-
-sleep 1
-
-echo "OK"
-
-ipsec up net
-
-# ip route add 10.2.0.2 dev eth0
-# ip route add 10.2.0.0/16 via 10.2.0.2 dev eth0
 ./ipt.sh
+rm /var/run/starter.charon.pid
+rm /var/run/charon.pid
+rm l.log
+ipsec start --nofork
 
-watch -n 1 ipsec statusall
-sh
+# ipsec start &
+# sleep 1
+
+# echo "OK"
+
+# ipsec up net
+# ./ipt.sh
