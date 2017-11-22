@@ -151,6 +151,13 @@ Inside the folder, the following commands can then be used:\\
     \# status of the tunnels and the firewall rules \\
     \$ > ipsec statusall \\
     \$ > iptables-save
+    %
+    \# To shut down the infrastructure \\
+    \$ docker-compose kill
+    \\ \\
+    %
+    \# To generate a new PKI (overwrites the previous, have to rebuild after) \\
+    \$~./genpki.sh
 }
 
 \section{Technical choices}
@@ -178,7 +185,7 @@ experience.
 \textbf{%
 \huge \danger{} \normalsize
 This part talks only about our initial design from the first design document.
-The actual design is detailed in the next part.
+The final design is detailed in the next part.
 }
 \\
 
