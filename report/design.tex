@@ -59,7 +59,7 @@ The first customer is called `A' and the second one `B'.
 
 While the scenario intends for this setup to be used in a corporate setting, the
 environment has for obvious reasons to be simulated.
-For that purpose, Docker is used. Docker offers a quick and easy way to setup
+For that purpose, \textbf{Docker} is used. Docker offers a quick and easy way to setup
 and script multiple simulated machines.
 The main advantage of Docker over traditional virtual machines is ease of
 reproducibility on different setups, which is key when doing groupwork.
@@ -68,7 +68,7 @@ Moreover, Docker is commonly used for cloud-based setups meaning that, for the
 cloud part, our simulation is somewhat similar to a real-world application.
 \\
 
-Docker Compose is used on top of Docker. Docker Compose is a tool for managing
+\textbf{Docker Compose} is used on top of Docker. Docker Compose is a tool for managing
 container instances: containers and networks are programmatically declared and
 the infrastructure as a whole can then be managed using simple commands.
 
@@ -83,10 +83,10 @@ The specifications state the limitations of the IoT device but nothing about
 it's actual function.
 Therefore, the simplest solution was chosen: a simple bash script runs inside
 its own Docker container and simulates the IoT client.
-This script uses curl to send a plain-text HTTP GET request containing the
+This script uses \textbf{curl} to send a plain-text HTTP GET request containing the
 current timestamp to a specified IP address/port.
 
-The server is a simple stateless python script running inside its
+The server is a simple stateless \textbf{python} script running inside its
 own container.
 The server receives the data from the client over HTTP, prints it out and
 discards it.
@@ -162,7 +162,7 @@ Inside the folder, the following commands can then be used:\\
 
 \section{Technical choices}
 
-\subsection{VPN}
+\subsection{VPN software}
 
 Various options were considered for the VPN software, but it finally boiled down
 to picking between OpenVPN and Strongswan.
@@ -171,30 +171,32 @@ strong and safe.
 
 First of all, we already have experience in setting up OpenVPN on our own
 dedicated servers.
-Then, Strongswan implements IPSec, an industry standard that is quite widespread
-on common routing infrastructure.
-A client who would like to use its own router could readily configure
-it so that it connects to our VPN (such configuration is outside the
-scope of this project but is quite standard), which is a good selling point for
-the customer and a decrease in cost for the company.
 
-Thus, Strongswan was chosen as it was both a sound choice and a good learning
+Then, Strongswan implements \textbf{IPSec}, an industry standard that is quite
+widespread on common routing infrastructure.
+A client who would like to use its own router could readily configure
+it so that it connects to our VPN (such configuration is outside the scope of
+this project but can be done by a network administrator), which is a good
+selling point for the customer and a decrease in cost for the company.
+
+Thus, \textbf{Strongswan} was chosen as it was both a sound choice and a good learning
 experience.
 
-\subsubsection{Authentication (initial design)}
+\subsection{Authentication (initial design)}
 \textbf{%
 \huge \danger{} \normalsize
-This part talks only about our initial design from the first design document.
+This part talks only about our initial design from the first design document.}
 The final design is detailed in the next part.
-}
+It is left here because the comparison between PSKs and PKIs was interesting
+research for us.
 \\
 
 For authentication, a public key infrastructure with a root certificate and one
-certificate for each of our gateways was the initial choice
+certificate for each of our gateways was the initial choice.
 Unfortunately, we had not yet managed to get it working by the initial design
 deadline and authentication systematically failed.
 
-Consequently, Pre-Shared Key (PSK) authentication was used, in which the
+Consequently, Pre-Shared Key (\textbf{PSK}) authentication was used, in which the
 password is stored in clear-text in Strongswan's configuration file.
 At the time, because of the scenario's simplicity (only two gateways were
 simulated), we believed this to be as easily maintained as a
@@ -202,15 +204,14 @@ PKI-based authentication solution (more on that later).\\
 
 In terms of security, we believe both solutions to be equivalent in most
 regards: if the machine is compromised, then a PSK or a private key can be
-extracted in the same manner, and both can then be replaced easily by an admin
-after the breach. 
+equally extracted, and both can then be replaced easily by an admin after the
+breach. 
 If the private key is password protected and the password is not provided in the
 configuration files, Strongswan will ask for it on startup.
-The same also applies to a PSK if so configured.
+The same also applies to PSKs if so configured.
 
 For an established connection, having access to the PSK is not a security
-concern as it is only used for initial authentication and not as a session key
-(the configuration used here provides perfect forward secrecy).\\
+concern as it is only used for initial authentication and not as a session key.\\
 
 In the end, however, a PKI is vastly superior for multiple reasons.
 First of all, an existing organization is likely to have its own PKI already,
@@ -226,50 +227,14 @@ Additionally, in a configuration with multiple customers, a successful attack
 against the cloud gateway entails a full replacement of all PSKs, whereas it
 would suffice to provide a new certificate and key pair when using a PKI\@.
 Even safer, a smartcard can be used to hold the private key, in which case it
-should be safe against both physical and remote attacks.
+should be secure against both physical and remote attacks.
 
 Finally, a key provided through a well configured PKI will always be
 cryptographically safe, whereas a PSK chosen by sloppy students might only be 7
 characters long (when it should have been a very long string of maximum
 entropy).
 
-\subsubsection{Authentication (final)}
-
-For the final design, the public-key infrastructure is up and running.
-The keys are generated outside of any Docker container (e.g.\ this is the
-simulated equivalent of having an offline machine where the private key for the
-root certificate is stored).
-
-The gateway containers are preloaded with the certificates and key: there's no
-runtime mechanism for obtaining them dynamically through an API or similar.
-Indeed, having such an API is a safety risk (bigger attack surface) and lays
-mainly outside of our domain of competence (we believe such difficult systems to
-be best left to more qualified people, such as Verisign or Let's encrypt).
-
-Each IOT gateway has its own key and certificate, the root certificate and the
-cloud gateway's certificate.
-The cloud gateway has its own key and certificate, the root certificate and all
-certificates from the other gateways.
-Note that checking only the name of the other party's certificate would also
-have been a possibility, but checking both name and certificate offers
-additional safety (e.g.\ if the root certificate's private key is compromised
-but not the individual private keys, then the certificates should remain safe to
-use until replacement).\\
-
-Currently, each gateway stores its private key locally, which is a risk in case
-of a breach.
-However, Strongswan supports smartcards.
-For a real-world application, it is the highest recommendation that smartcards
-be used.
-
-A smartcard is likely one of the safest ways to get a private key
-to the customer's physical site: the smartcards are believed to be physically
-tamperproof and would not fall victim to a remote attack.
-One could even consider having a smartcard delivered to the client and
-configuring the gateway remotely, implying much less time spent and therefore
-reduced cost per client.
-
-\subsubsection{Encryption algorithms}
+\subsection{Encryption algorithms}
 
 Strongswan accepts 3 paramaters related to communications security.
 
@@ -279,9 +244,58 @@ included MAC\@.
 For integrity, prfsha512, a sha512 hash combined with a pseudorandom
 function, is used.
 
-Finally, an elliptic curve Diffie-Hellman with curve25519 is used to
-construct a session key.
-This provides perfect forward secrecy.
+Finally, the session key is constructed using ECDH with curve ed25519.
+This provides perfect forward secrecy, meaning that obtaining the private key
+used for authentication will not allow an attacker to compromise an ongoing
+connection.
+
+\subsection{Authentication (final)}
+
+For the final design, the \textbf{public-key infrastructure} is up and running.
+The keys are generated outside of any Docker container (e.g.\ this is the
+simulated equivalent of having an offline machine where the private key for the
+root certificate is stored).
+
+The private keys are generated using curve ed25519 and the certificates are
+signed with ECDSA\@.
+
+Each IOT gateway has its own key and certificate, the root certificate and the
+cloud gateway's certificate.
+
+The cloud gateway has its own key and certificate, the root certificate and all
+certificates from the other gateways.
+
+Note that checking only the name of the other party's certificate would have
+been sufficient, but checking both name and certificate offers additional safety
+(e.g.\ if the root certificate's private key is compromised but not the
+individual private keys, then the certificates should remain safe to use until
+replacement).
+This practice is generally known as \textbf{certificate pinning}, which is safer
+but requires more administrative work.
+
+\subsubsection{Safety concerns over private key storage}
+
+For the prototype, the gateway containers are preloaded with the certificates
+and key.
+In a real-world application, delivering keys through an API seems like an
+unnecessary safety risk: it offers a larger attack surface for a part of the
+infrastructure that is highly critical.
+Designing and building such a system lays outside of the scope of this project,
+and is probably best left to specialists.
+
+However, there remains a dual concern regarding safe private key delivery and
+storage.
+
+As an answer to both those concerns, Strongswan supports smartcards.
+For a real-world application, it is our utmost recommandation that
+smartcards be used.
+
+A \textbf{smartcard} is a very safe way to get a private key to the customer's
+physical site: smartcards are believed to be physically tamperproof and would
+not fall victim to a remote attack.
+The smartcard could then be delivered to the client and the gateway remotely
+configured, implying less time spent, reduced transportation fees and
+therefore better rentability.
 
 \subsection{Routing}
 
@@ -321,14 +335,14 @@ The key rules, of which there is a pair for each IoT network, are the following:
 \texttt{%
     -A FORWARD -p tcp -s \$LAN\_SOURCE/16 -d \$DEST\_SERVER/32 --dport 80 -i
     eth\_internet -o eth\_lan -m conntrack --ctstate NEW,ESTABLISHED -m policy
-    --dir in --pol ipsec --reqid tunnel\_id --proto esp -j ACCEPT
+    --dir in --pol ipsec --reqid \$TUNNEL\_ID --proto esp -j ACCEPT
 }
 \\
 
 \texttt{%
     -A FORWARD -p tcp -s \$DEST\_SERVER/32 -d \$LAN\_SOURCE/16 --sport 80 -m
     conntrack --ctstate \\ESTABLISHED -i eth\_lan -o eth\_internet -m policy --dir
-    out --pol ipsec --reqid tunnel\_id --proto esp -j ACCEPT
+    out --pol ipsec --reqid \$TUNNEL\_ID --proto esp -j ACCEPT
 }
 \\
 
@@ -336,6 +350,23 @@ The first rule will allow incoming traffic from the IoT LAN and to the
 destination server (and only that one server) on the TCP port 80 (HTTP) coming
 in from the internet and going towards the cloud LAN if it has travelled
 through the correct IPSEC VPN tunnel (reqid parameter).
+
+Let's go through each parameter of the rule:
+\begin{description}
+    \item [-A FORWARD] Packets being forwarded (not packets that are directly
+        for/from the gateway)
+    \item [-p tcp -s \$LAN\_SOURCE/16 -d \$DEST\_SERVER/32 -dport 80] Packets 
+        containing a TCP payload coming from the \$LAN\_SOURCE subnetwork and
+        destinated to the \$DEST\_SERVER on port 80 only.
+    \item [-i eth\_internet -o eth\_lan] Packets coming in on the internet
+        interface and going out on the cloud interface.
+    \item [-m conntrack --ctstate NEW,ESTABLISHED] Packets who are opening a new
+        TCP connection or belonging to an existing TCP connection (stateful
+        tracking of TCP connections).
+    \item [-m policy --dir in --pol ipsec --reqid \$TUNNEL\_ID --proto esp]
+        Inbound IPSec packets coming from the IPSec tunnel identified by
+        \$TUNNEL\_ID
+\end{description}
 
 The second rule is the same but in the other direction.
 
