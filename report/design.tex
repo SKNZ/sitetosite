@@ -5,6 +5,8 @@
 \usepackage[english]{babel}
 \usepackage{amsmath,amsfonts,amsthm}
 \usepackage{relsize}
+\usepackage{listings}
+\usepackage{hyperref}
 \usepackage{svg}
 
 \usepackage{sectsty}
@@ -30,11 +32,18 @@
 \textwidth = 500pt
 \textheight = 760pt
 
+\hypersetup{%
+  colorlinks=true,% hyperlinks will be coloured
+  linkcolor=blue,% hyperlink text will be green
+}
+
 \author{Floran NARENJI-SHESHKALANI \& Jean-Marcellin TRUONG} 
 
 \begin{document}
 
 Authors: Floran NARENJI-SHESHKALANI (643166) \& Jean-Marcellin TRUONG (643357)
+
+\tableofcontents
 
 \section{General idea}
 
@@ -59,8 +68,8 @@ The first customer is called `A' and the second one `B'.
 
 While the scenario intends for this setup to be used in a corporate setting, the
 environment has for obvious reasons to be simulated.
-For that purpose, \textbf{Docker} is used. Docker offers a quick and easy way to setup
-and script multiple simulated machines.
+For that purpose, \textbf{Docker} is used. Docker offers a quick and easy way to
+setup and script multiple simulated machines.
 The main advantage of Docker over traditional virtual machines is ease of
 reproducibility on different setups, which is key when doing groupwork.
 
@@ -68,9 +77,10 @@ Moreover, Docker is commonly used for cloud-based setups meaning that, for the
 cloud part, our simulation is somewhat similar to a real-world application.
 \\
 
-\textbf{Docker Compose} is used on top of Docker. Docker Compose is a tool for managing
-container instances: containers and networks are programmatically declared and
-the infrastructure as a whole can then be managed using simple commands.
+\textbf{Docker Compose} is used on top of Docker. Docker Compose is a tool for
+managing container instances: containers and networks are programmatically
+declared and the infrastructure as a whole can then be managed using simple
+commands.
 
 All instances and configuration of the instance can be found in the
 \texttt{docker-compose.yml} file.
@@ -83,8 +93,8 @@ The specifications state the limitations of the IoT device but nothing about
 it's actual function.
 Therefore, the simplest solution was chosen: a simple bash script runs inside
 its own Docker container and simulates the IoT client.
-This script uses \textbf{curl} to send a plain-text HTTP GET request containing the
-current timestamp to a specified IP address/port.
+This script uses \textbf{curl} to send a plain-text HTTP GET request containing
+the current timestamp to a specified IP address/port.
 
 The server is a simple stateless \textbf{python} script running inside its
 own container.
@@ -107,7 +117,7 @@ The gateways serve as the main routing nodes of their LAN network, and all
 traffic goes through them.
 
 They are also set up to only let through traffic that is relevant for each
-network (see Section~\ref{firewall} for the firewall rules).
+network (see~\autoref{firewall} for the firewall rules).
 \\
 
 The image for the client gateways is in the \texttt{gw} subfolder.
@@ -138,7 +148,7 @@ Inside the folder, the following commands can then be used:\\
     \# In another terminal, launch the client \\
     \$ docker-compose up aiot \\
     \$ docker-compose up biot \\
-    \# Each client will make a request to its server and to the other server \\
+    \# Each client will make a request to its server and to the other server.\\
     \# The one to the other server should fail.
     \\ \\
     %
@@ -159,6 +169,26 @@ Inside the folder, the following commands can then be used:\\
     \# To generate a new PKI (overwrites the previous, have to rebuild after) \\
     \$~./genpki.sh
 }
+
+\subsection{Automation}
+
+The only manual step to set up the infrastructure is the \texttt{genpki.sh}
+script, which provisions the PKI\@.
+This remains somewhat equivalent to reality: distributing the private aspects of
+the PKI remains a task that needs to be done out-of-band.
+These concerns are discussed later on (cf.~\autoref{pkis}).
+
+Provisioning and start up sequences inside the Docker containers are automated.
+Provisioning is done through the \texttt{setup.sh} script found in all
+container's folder, although some basics such as package installation are done
+directly through the Dockerfile for caching purposes.
+The start up sequence is done by the \texttt{startup.sh} script.\\
+
+For a simple example of what the result of gateway provisioning looks like,
+see~\autoref{gwcfg}.
+
+For an explanation of how \texttt{Docker-compose} is used to provision networks,
+see~\autoref{dkc}.
 
 \section{Technical choices}
 
@@ -234,21 +264,6 @@ cryptographically safe, whereas a PSK chosen by sloppy students might only be 7
 characters long (when it should have been a very long string of maximum
 entropy).
 
-\subsection{Encryption algorithms}
-
-Strongswan accepts 3 paramaters related to communications security.
-
-For encryption, AES256-CBC is used, as it is a well-known standard and provides
-included MAC\@.
-
-For integrity, prfsha512, a sha512 hash combined with a pseudorandom
-function, is used.
-
-Finally, the session key is constructed using ECDH with curve ed25519.
-This provides perfect forward secrecy, meaning that obtaining the private key
-used for authentication will not allow an attacker to compromise an ongoing
-connection.
-
 \subsection{Authentication (final)}
 
 For the final design, the \textbf{public-key infrastructure} is up and running.
@@ -273,7 +288,7 @@ replacement).
 This practice is generally known as \textbf{certificate pinning}, which is safer
 but requires more administrative work.
 
-\subsubsection{Safety concerns over private key storage}
+\subsubsection{Safety concerns over private key storage} \label{pkis}
 
 For the prototype, the gateway containers are preloaded with the certificates
 and key.
@@ -296,6 +311,22 @@ not fall victim to a remote attack.
 The smartcard could then be delivered to the client and the gateway remotely
 configured, implying less time spent, reduced transportation fees and
 therefore better rentability.
+
+\subsection{Encryption algorithms}
+
+Strongswan accepts 3 paramaters related to communications security.
+
+For encryption, AES256-CBC is used, as it is a well-known standard and provides
+included MAC\@.
+
+For integrity, prfsha512, a sha512 hash combined with a pseudorandom
+function, is used.
+
+Finally, the session key is constructed using ECDH with curve ed25519.
+This provides perfect forward secrecy, meaning that obtaining the private key
+used for authentication will not allow an attacker to compromise an ongoing
+connection.
+
 
 \subsection{Routing}
 
@@ -368,7 +399,7 @@ Let's go through each parameter of the rule:
         \$TUNNEL\_ID
 \end{description}
 
-The second rule is the same but in the other direction.
+The second rule is mostly similar but adapted in the other direction.
 
 Furthermore, both rules have statefulness constraints: traffic can only be
 initiated from the IoT LAN to the cloud LAN and traffic can only leave the cloud
@@ -384,6 +415,207 @@ trusted which explains why the cloud gateway has bigger responsibilities.
 
 Firewall rules in full can be found in \texttt{gw/fw} for the IoT gateways and
 \texttt{cloudgw/fw} for the cloud gateway.
+
+\newpage{}
+
+\section{ANNEX 1: Gateway configuration}\label{gwcfg}
+
+This part aims to provide a summary for basic IPSec configuration for anyone
+who would wish to run a similar setup.
+This does not intend to be a duplicate of the Strongswan documentation but more
+of a summary of the process.
+
+On any standard Linux distribution, one should begin by installing the
+strongswan package.
+In our setup, the Alpine Linux distribution is used inside Docker containers and
+the following information applies to Strongswan 5.6.1 (as given by \texttt{ipsec
+version}).
+Configuration files will be found in the \texttt{/etc/} folder and can be easily
+identified because they follow the \texttt{ipsec*} naming convention.
+
+\subsection{Gateway authentication}
+
+In the folder \texttt{/etc/ipsec.d/}, the following subfolders are used for:
+\begin{description}
+    \item [private/] contains the private key of the certificate that identifies
+        the current node (in our case, there should be no more than one file
+        here)
+    \item [certs/] contains at least the certificate of the current node, and the
+        pinned certificates if any
+    \item [cacerts/] contains the root certificate (also a single file in our
+        case)
+\end{description}
+
+They must be adequately provisioned for authentication to succeeed.\\
+
+Then, in the \texttt{/etc/ipsec.secrets}, the following line must be appended in
+order to indicate the private key to be used:
+
+\texttt{:RSA privateKeyFileName.der}
+
+The private key will be matched to the certificate automatically.
+
+\subsection{Strongswan configuration}
+
+The \texttt{/etc/ipsec.conf} file is the main configuration file.
+Note that indentation (one level per block) is a necessity for the file to be
+valid.
+
+For basic configuration, we can use a single block:
+
+\begin{lstlisting}
+conn main
+    # Further configuration here, with one tabulation of indentation
+\end{lstlisting}
+
+The following configuration options are common to every gateway:
+
+\begin{verbatim}
+# Use version 2 of the IKE protocol used as part of IPSec
+keyexchange=ikev2
+# Strong cipher options, might not be support by older versions
+ike=aes256gcm16-prfsha512-curve25519!
+esp=aes256gcm16-prfsha512-curve25519!
+# Certificate subject for the root CA.
+# Not mandatory, but being more specific is safer.
+rightca="C=FI, O=netsecvpn, CN=rootca"
+leftca="C=FI, O=netsecvpn, CN=rootca"
+# Automatically register the connection with the IPSec daemon
+auto=add
+\end{verbatim}
+
+The following configuration options need to be adapted for each gateway:
+\begin{verbatim}
+# Certificate subject and file for the current node
+leftid="C=FI, O=netsecvpn, CN=cloudgw"
+leftcert=cloudgwCert.der
+# Subnet for which the current node is the gateway
+leftsubnet=10.1.0.0/16
+# Tunnel number, as used in the firewall rule's --reqid parameter
+# Should be unique per connection
+reqid=2
+# Certificate subject for the remote node
+rightid="C=FI, O=netsecvpn, CN=agw"
+# Subnet for which the remote node is the gateway
+rightsubnet=10.2.0.0/16
+
+# Both of the following options are optional, they are additional safety measures.
+# This will only allow this tunnel to go up from a specific IP address
+right=10.0.0.2
+# This will require that the remote node present the exact certificate as found
+# on the local node (instead of only verifying the subject name).
+# Known as certificate pinning
+rightcert=agwCert.der
+\end{verbatim}
+
+The example is made for the cloud gateway.
+For client gateways, the left and right roles need be reversed and the reqid can
+be dropped as there will be only one tunnel per client gateway.
+
+\subsection{IPSec logging in Docker containers}
+
+IPSec configuration can be quite fickle and the default settings log to the
+systemd logs, which is not available inside a Docker container.
+Therefore, it is useful to enable file-based logging and to make it more verbose
+in order to facilitate debugging.
+
+For that, the file \texttt{/etc/strongswan.d/charon-logging.conf} must contain:
+
+\begin{lstlisting}
+charon {
+    filelog {
+        /app/l.log {
+            append = yes
+            default = 2
+            flush_line = yes
+            time_format = %Y-%m-%d %H:%M:%S
+        }
+    }
+}
+\end{lstlisting}
+
+\newpage{}
+
+\section{ANNEX 2: Docker-compose configuration}\label{dkc}
+
+Docker-compose allows quick provisioning of containers, including networking.
+This is done in a quite straigthforward manner in the
+\texttt{docker-compose.yml} file.
+
+Some of the well-documented features that were used are:
+\begin{description}
+    \item [volumes] to mount the PKI data in the client gateways
+    \item [dependencies] to indicate dependencies and therefore startup
+        ordering
+    \item [environment variables] to configure generic containers with instance
+        specific data (e.g.\ which IOT server to use)
+\end{description}
+
+Some other features required special attention due to the low-level nature of
+VPN networking.
+Those are highlighted below.
+
+\subsection{Networking}
+
+\begin{verbatim}
+version: '2'
+services:
+    myinstance:
+        build: mycontainer/
+        networks:
+            firstnet:
+            secondnet:
+                ipv4_address: 10.10.0.3
+networks:
+    firstnet:
+        driver: bridge
+        ipam:
+            config:
+                - subnet: 10.0.0.0/16
+    secondnet:
+        driver: bridge
+        ipam:
+            config:
+                - subnet: 10.10.0.0/16
+\end{verbatim}
+
+Here, we define a container who belongs to two networks, and will have a fixed
+IP in one of the networks.
+We then define both networks with their respective subnets.
+Those networks will be fully isolated from one another.
+For these options to work, the version of file must be 2.
+
+\subsection{Special privileges}
+
+The VPN gateways operate at a very low level and require specific kernel
+privileges.
+While Docker permits adding those privileges individually, no specific
+combination was found to be sufficient to run Strongswan.
+Therefore, the VPN gateways are run with full privileges, which might represent
+a potential security hazard if the isolation mechanisms were to be broken (until
+then, the container still has no influence on the host machine).
+
+\begin{verbatim}
+services:
+    cloudgw:
+        build: cloudgw/
+        privileged: true
+\end{verbatim}
+
+\subsection{Shell}
+
+By default, Docker containers do not supports interactive shells (the TTY is
+disabled and stdin is closed).
+To be able to execute an interactive shell inside a container (e.g.\ for
+debugging purposes), the following options must be set:
+
+\begin{verbatim}
+services:
+    myinstance:
+        build: container/
+        tty: true
+        stdin_open: true
+\end{verbatim}
 
 \end{document}
 
